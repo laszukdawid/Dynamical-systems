@@ -2,8 +2,7 @@
 # coding: UTF-8
 #
 # Author: Dawid Laszuk
-# Contact: d.laszuk@pgr.reading.ac.uk
-#          laszukdawid@gmail.com
+# Contact: laszukdawid@gmail.com
 #
 # Last update: 18/05/2015
 #
