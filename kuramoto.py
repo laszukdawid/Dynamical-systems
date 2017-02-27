@@ -21,7 +21,7 @@ from __future__ import print_function
 import numpy as np
 from scipy.integrate import odeint
 
-__version__ = '0.1'
+__version__ = '0.2'
 __author__ = 'Dawid Laszuk'
 
 class Kuramoto(object):
@@ -41,9 +41,10 @@ class Kuramoto(object):
         """
         Passed arguments should be a dictionary with NumPy arrays
         for initial phase (Y0), intrisic frequencies (W) and coupling
-        matrix (K). 
+        matrix (K).
         """
-        
+        self.dtype = np.float32
+
         self.init_phase = np.array(init_values['Y0'])
         self.W = np.array(init_values['W'])
         self.K = np.array(init_values['K'])
@@ -55,7 +56,9 @@ class Kuramoto(object):
 
         yt = y[:,None]
         dy = y-yt
-        phase = w + np.sum(k*np.sin(dy),axis=1)
+        phase = w.astype(self.dtype)
+        for i, _k in enumerate(k):
+            phase += np.sum(_k*np.sin((i+1)*dy),axis=1)
         
         return phase
 
@@ -74,6 +77,7 @@ if __name__ == "__main__":
     t0, t1, dt = 0, 40, 0.01
     T = np.arange(t0, t1, dt)
 
+
     # Y0, W, K are initial phase, intrisic freq and 
     # coupling K matrix respectively
     _Y0 = np.array([0, np.pi,0,1, 5, 2, 3])
@@ -83,16 +87,19 @@ if __name__ == "__main__":
                    [ 1.1939,  4.4156,  1.1423,  0.2509,  4.1527],
                    [ 3.8386,  2.8487,  3.4895,  0.0683,  0.8246],
                    [ 3.9127,  1.2861,  2.9401,  0.1530,  0.6573]])
+    _K2 = np.random.random((5,5))
+
+    _K = np.dstack((_K, _K2)).T
 
     # Preparing oscillators with Kuramoto model
-    oscN = 5 # num of oscillators
+    oscN = 3 # num of oscillators
 
     Y0 = _Y0[:oscN]
     W = _W[:oscN]
-    K = _K[:oscN,:oscN]
+    K = _K[:,:oscN,:oscN]
 
     init_params = {'W':W, 'K':K, 'Y0':Y0}
-    
+
     kuramoto = Kuramoto(init_params)
     odePhi = kuramoto.solve(T).T
     odeT = T[:-1]
