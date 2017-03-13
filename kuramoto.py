@@ -26,8 +26,10 @@ __author__ = 'Dawid Laszuk'
 
 class Kuramoto(object):
     """
-    Implementation of Kuramoto coupling model [1] with harmonic terms.
-    It uses NumPy's arrays and Scipy `odeint` for numerical integration.
+    Implementation of Kuramoto coupling model [1] with harmonic terms
+    and possible perturbation.
+    It uses NumPy and Scipy's implementation of Runge-Kutta 4(5)
+    for numerical integration.
     
     Usage example:
     >>> kuramoto = Kuramoto(initial_values)

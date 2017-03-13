@@ -1,7 +1,9 @@
 # Dynamical systems
 
 ## Kuramoto
-Implementation of famous Kuramoto coupling model [1,2]. Current version (0.1) only provides for simple harmonic interactions between oscillators. Soon will be added additional degrees for coupling terms and possibility to include noise.
+Implementation of famous Kuramoto coupling model [1,2]. Current version (0.3) provides:
+* Harmonic coupling terms.
+* Perturbations of any type, with few predefied, can be activated.
 
 ## Bayesian-Kuramoto
 Class executing dynamical Bayesian inference of time-evolving coupled system in presence of noise [3,4]. Algorithm based on set of papers (e.g. see below) and MatLab code provided by one of the authors (http://py-biomedical.lancaster.ac.uk/).
