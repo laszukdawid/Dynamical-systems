@@ -30,17 +30,17 @@ class Kuramoto(object):
     and possible perturbation.
     It uses NumPy and Scipy's implementation of Runge-Kutta 4(5)
     for numerical integration.
-    
+
     Usage example:
     >>> kuramoto = Kuramoto(initial_values)
     >>> phase = kuramoto.solve(X)
-    
+
     [1] Kuramoto, Y. (1984). Chemical Oscillations, Waves, and Turbulence
         (Vol. 19). doi: doi.org/10.1007/978-3-642-69689-3
     """
 
     _noises = { 'logistic': np.random.logistic,
-                'normal': np.random.normal, 
+                'normal': np.random.normal,
                 'uniform': np.random.uniform,
                 'custom': None
               }
@@ -62,9 +62,9 @@ class Kuramoto(object):
 
         self.n_osc = len(self.W)
         self.m_order = self.K.shape[0]
-        
+
         self.noise = noise
-        
+
 
     @property
     def noise(self):
@@ -79,14 +79,14 @@ class Kuramoto(object):
 
         self._noise = None
         self.noise_params = None
-        self.noise_type = 'custom'        
+        self.noise_type = 'custom'
 
         # If passed a function
         if callable(_noise):
             self._noise = _noise
-        
+
         # In case passing string
-        elif isinstance(_noise, basestring):
+        elif isinstance(_noise, str):
 
             if _noise.lower() not in self.noise_types:
                 self.noise_type = None
@@ -94,14 +94,14 @@ class Kuramoto(object):
 
             self.noise_type = _noise.lower()
             self.update_noise_params(self.dt)
-            
+
             noise_function = self._noises[self.noise_type]
             self._noise = lambda: np.array([noise_function(**p) for p in self.noise_params])
-        
+
     def update_noise_params(self, dt):
         self.scale_func = lambda dt: dt/np.abs(self.W**2)
         scale = self.scale_func(dt)
-        
+
         if self.noise_type == 'uniform':
             self.noise_params = [{'low':-s, 'high': s} for s in scale]
         elif self.noise_type in self.noise_types:
@@ -134,7 +134,7 @@ class Kuramoto(object):
         w, k = arg
         yt = y[:,None]
         dy = y-yt
-            
+
         phase = [m*k[m-1]*np.cos(m*dy) for m in range(1,1+self.m_order)]
         phase = np.sum(phase, axis=0)
 
@@ -142,7 +142,7 @@ class Kuramoto(object):
             phase[i,i] = -np.sum(phase[:,i])
 
         return phase
-        
+
     def solve(self, t):
         """Solves Kuramoto ODE for time series `t` with initial
         parameters passed when initiated object.
@@ -164,7 +164,7 @@ class Kuramoto(object):
             self.update_noise_params(dt)
 
         phase = np.empty((self.n_osc, len(t)))
-        
+
         # Run ODE integrator
         for idx, _t in enumerate(t[1:]):
             phase[:,idx] = kODE.y
@@ -179,13 +179,13 @@ class Kuramoto(object):
 
 if __name__ == "__main__":
     import pylab as plt
-    
+
     ####################################################
     t0, t1, dt = 0, 40, 0.05
     T = np.arange(t0, t1, dt)
 
 
-    # Y0, W, K are initial phase, intrisic freq and 
+    # Y0, W, K are initial phase, intrisic freq and
     # coupling K matrix respectively
     _Y0 = np.array([0, np.pi,0,1, 5, 2, 3])
     _W = np.array([28,19,11,9, 2, 4])
@@ -217,7 +217,7 @@ if __name__ == "__main__":
     odeT = T[:-1]
 
     ##########################################
-    # Plot the phases 
+    # Plot the phases
     plt.figure()
 
     for comp in range(len(W)):

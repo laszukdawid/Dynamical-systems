@@ -4,12 +4,10 @@
 # Author: Dawid Laszuk
 # Contact: laszukdawid@gmail.com
 #
-# Last update: 18/05/2015
-#
 # Feel free to contact for any information.
 #
 # You can cite this code by referencing:
-#   D. Laszuk, "Python implementation of Bayesian inference 
+#   D. Laszuk, "Python implementation of Bayesian inference
 #   for Kuramoto systems," 2015-,
 #   [Online] Available: http://www.laszukdawid.com/codes
 #
@@ -18,18 +16,20 @@
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
-#  
+#
 #  This program is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
-#  
+#
 #  You should have received a copy of the GNU General Public License
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #  MA 02110-1301, USA.
-#  
+#
+from __future__ import print_function
 
+import logging
 import numpy as np
 import pylab as py
 from scipy.integrate import ode
@@ -49,37 +49,39 @@ class BayesUpdate:
 
     """
 
+    logger = logging.getLogger(__name__)
+
     def __init__(self, M, L):
         """
         Class initiation requires two values:
             M - total number of parameters
             L - number of oscillators.
-        
+
         Assuming typical correspondance one-to-one between all
         oscillators: M = 1 + L*(L-1)/2 .
 
         Example of usage:
         B = BayesUpdate(M,L)
         T_out, C_out, E_out = B.runBayes(phi, win, h, ovrPerc, propConst, infoDisplay)
-        
+
         See self.runBayes for variables explaination.
         """
-        
+
         self.L = L
         self.M = M
-        self.paramK = M/L
-        self.Cpr = np.zeros((L,M/L))
+        self.paramK = int(M/L)
+        self.Cpr = np.zeros((L, self.paramK))
 
-        self.XIpr = np.matrix(np.zeros((M,M)))
-        self.XIpt = np.matrix(np.zeros((M,M)))
-        self.E = np.matrix(np.zeros((L,L)))
-        
+        self.XIpr = np.matrix(np.zeros((M, M)))
+        self.XIpt = np.matrix(np.zeros((M, M)))
+        self.E = np.matrix(np.zeros((L, L)))
+
         # Max iterations
         self.MAX_LOOPS = 100
         self.EPS = 0.0001
     ######################################
 
-    def runBayes(self, ph, win, h, ovrPerc, propConst, infoDisplay):
+    def runBayes(self, ph, win, h, ovrPerc, propConst, **kwargs):
         """
         # The main function.
         # Windows signal, calculte parameter matrices and propagates
@@ -95,69 +97,70 @@ class BayesUpdate:
         # infoDisplay - if True, print progress status
 
         #---outputs---
-        # T_out - array of time vector for plotting 
+        # T_out - array of time vector for plotting
         # C_out - array of inferred mean parameters
         # E_out - array of inferred noise
 
         """
-        
+        infoDisplay = kwargs["infoDisplay"] if "infoDisplay" in kwargs else False
+
         # Setting class variables
         self.h = h
         win = win/h
-        w = ovrPerc*win 
+        w = ovrPerc*win
         pw = win*h*propConst
-        
+
         Cpr = self.Cpr
         XIpr = self.XIpr
-        
+
         # Unwrap phases if given in [0, 2pi) range
         if np.max(ph)<(2*np.pi+0.1):
             ph = np.unwrap(ph, axis=1)
 
         # Number of windows
         IX = int(np.floor((ph[0].size-win)/w))
-        print 'IX: ', IX
-        
+        self.logger.debug('IX: ', IX)
+
         # Output arrays
         E_out = np.zeros((IX, self.L, self.L))
         C_out = np.zeros((IX, self.M))
-        
+
         #############################
         ## Iterate over each segment
         for i in range(IX):
 
             # Extracting window
-            phi = ph[:, i*w:i*w+win]
-            
+            phi = ph[:, int(i*w):int(i*w+win)]
+
             #-----bayesian inference for one window------
             [Cpt,XIpt,E] = self.adjustBayesParams(Cpr,XIpr,h, phi)
-          
+
             #the propagation for the next window
             #~ XIpt, Cpt = self.Propagation_function_XIpt(Cpt,XIpt,pw)
             XIpt, Cpt = self.Propagation_function_Cpt(Cpt,XIpt,pw)
-          
+
             # Save in output arrays
             E_out[i] = E
             C_out[i] = Cpt.flatten()
-            
+
             # Assigning a posteriori prob of this iteration
             # to a priori prob for next
             Cpr = Cpt.copy()
             XIpr = XIpt.copy()
-           
-            #display progress 
+
+            #display progress
             if infoDisplay:
-                print 'processed so far: t= ', str((i+1)*w*h), 's /', str(ph[0].size*h), 's ;'
-                print 'Cpt: \n', Cpt
-                print 'E: \n', E
+                self.logger.info('processed so far: t = ' + str((i+1)*w*h) + 's /' + str(ph[0].size*h) + 's ;')
+                self.logger.info('Cpt: \n' + str(Cpt))
+                self.logger.info('E: \n' + str(E))
 
 
         # Creat time vector for plotting
         T_out = h*np.linspace(win/2, ph[0].size-win/2, IX)
 
-        
+
         return T_out, C_out, E_out
-                
+
     def adjustBayesParams(self,Cpr,XIpr,h, Phi):
         """
         #infers the parameters and the noise within one block of data.
@@ -188,17 +191,17 @@ class BayesUpdate:
         # Resuts are converted to matrices for easier manipulations.
         P = np.matrix( self.calculateP(phiS) )
         V = np.matrix( self.calculateV(phiS) )
-        
+
         # Convert to matrices for easier mianpulations.
         phiT = np.matrix(phiT)
         Cpr = np.matrix(Cpr)
 
-        # Initialte 
+        # Initialte
         Cpt = Cpr #initialize Cpt
-        
+
         # oop to converge iteratively the result until desired precision is reached
 
-        for i in xrange(self.MAX_LOOPS):
+        for i in range(self.MAX_LOOPS):
 
             E = self.calculateE(Cpr, phiT, h, P)
             Cpt,XIpt = self.calculateC(E, P, V, Cpr, XIpr, phiT)
@@ -207,7 +210,7 @@ class BayesUpdate:
             c1, c2 = np.array(Cpt), np.array(Cpr)
             if(np.sum(np.power((c1-c2)/c1, 2)) < self.EPS):
                 break
-            
+
             #~ Cpr = Cpt.copy()
             #~ XIpr = XIpt.copy()
 
@@ -219,10 +222,10 @@ class BayesUpdate:
 
             Returns V vector of shape (1+d1*(d1-1)/2 , d2).
             d1 - number of oscillators
-            d2 - number of data points    
+            d2 - number of data points
         """
         d1, d2 = phiS.shape
-        P = np.zeros( (self.paramK,d2) )
+        P = np.zeros((self.paramK, d2))
 
         n = 0
         P[n] = 1
@@ -232,36 +235,36 @@ class BayesUpdate:
                 dPhi = phiS[i]-phiS[j]
                 P[n] = np.sin(dPhi)
                 n += 1
-        
+
         return P
     ######################################
 
     def calculateV(self,phiS):
-        """ Calculate derivatives of P vector in respect 
+        """ Calculate derivatives of P vector in respect
             to each variable.
-            
+
             Returns V vector of shape (d1*M , d2).
             d1 - number of oscillators
             d2 - number of data points
             M  - number of parameters
         """
         d1, d2 = phiS.shape
-        v = np.zeros( (d1*self.M,d2) )
+        v = np.zeros((d1*self.M, d2))
 
         n = 0
         for i in range(0, d1):
-            v[n] = 0        
-            
+            v[n] = 0
+
             for x in range(0,d1):
-                for y in range(x+1, d1):                
+                for y in range(x+1, d1):
                     if i == x or i==y:
                         dPhi = phiS[x]-phiS[y]
                         v[n] = np.cos(dPhi)*((-1)**(i==y))
                         n += 1
                     else:
-                        v[n] = 0 
+                        v[n] = 0
                         n += 1
-        
+
         return v
     ######################################
 
@@ -270,7 +273,7 @@ class BayesUpdate:
         """
 
         # Make sure dimension is correct
-        E = np.zeros((self.L,self.L))
+        E = np.zeros((self.L, self.L))
 
         # Update noise matrix
         X = phiT-c*p
@@ -283,7 +286,7 @@ class BayesUpdate:
         """ Calculates parameter vector C.
         """
 
-        paramK = self.M/self.L
+        paramK = int(self.M/self.L)
 
         # Initiate vectors
         r = np.zeros(self.M)
@@ -291,34 +294,34 @@ class BayesUpdate:
 
         # Inverse vectors
         invE = np.linalg.inv(E)
-        ED = invE*phiT 
-        
+        ED = invE*phiT
+
         pT = P.T
         ppT = P*pT
-        
+
         # Calculating XI matrix (concentration matrix)
         for xI in range(self.L):
-            xIK = xI*paramK
+            xIK = int(xI*paramK)
             for yI in range(self.L):
-                yIK = yI*paramK
-                
+                yIK = int(yI*paramK)
+
                 # Posteriori Xi based on priori Xi and transfer function
                 XIpt[xIK:xIK+paramK, yIK:yIK+paramK] = \
                     XIpr[xIK:xIK+paramK, yIK:yIK+paramK] \
-                    + self.h*invE[xI,yI]*ppT 
+                    + self.h*invE[xI,yI]*ppT
 
 
         ##############
         # calculating r vector
-        
+
         for xI in range(self.L):
-            xIK = xI*paramK            
-            _r = np.zeros((1,paramK))
+            xIK = xI*paramK
+            _r = np.zeros((1, paramK))
             for yI in range(self.L):
                 yIK = yI*paramK
                 _r  += Cpr[yI]*XIpr[xIK:xIK+paramK, yIK:yIK+paramK]
                 #~ _r  += Cpr[yI]*XIpt[xIK:xIK+paramK, yIK:yIK+paramK]
-            
+
             # Update r vector
             _r += self.h*(np.dot(P, ED[xI].T) - 0.5*np.sum(V[xIK:xIK+paramK],axis=1)).T
             r[xIK:xIK+paramK] = _r.flatten()
@@ -327,12 +330,12 @@ class BayesUpdate:
         # New parameters are inv(XI) * R
         R = np.matrix(r)
         C = (R*np.linalg.inv(XIpt)).T
-        
+
         # Reshape to matrix form
         Cpt = C.reshape((self.L, paramK))
         Cpt = np.matrix(Cpt)
-        
-        
+
+
         return (Cpt,XIpt)
     ######################################
 
@@ -341,13 +344,13 @@ class BayesUpdate:
         """
         self.Cpr = C
     ######################################
-    
+
     def setPriorXi(self, Xi):
         """ Assign value to prior Xi, if known.
         """
         self.XIpr = Xi
     ######################################
-    
+
     def Propagation_function_XIpt(self,Cpt,XIpt,p):
         """ Propagation function for params covariance
             based on XIpt matrix.
@@ -358,14 +361,14 @@ class BayesUpdate:
         invXIpt = np.linalg.inv(XIpt)
 
         Inv_Diffusion = np.diag(np.diag(invXIpt))*p*p
-        
-        # The gaussian of the posterior is convoluted with another 
+
+        # The gaussian of the posterior is convoluted with another
         # gaussian which express the diffusion of the parameter.
         XIpr= np.linalg.inv( ( invXIpt + Inv_Diffusion ) )
 
         return XIpr,Cpr
     ######################################
-        
+
     def Propagation_function_Cpt(self,Cpt,XIpt,p):
         """ Propagation function for params covariance
             based on Cpt matrix.
@@ -375,8 +378,8 @@ class BayesUpdate:
         # Set a value for a particular parameter
         Inv_Diffusion = np.diag( np.ravel(Cpt) )*p*p
         invXIpt = np.linalg.inv(XIpt)
-                
-        # The gaussian of the posterior is convoluted with another 
+
+        # The gaussian of the posterior is convoluted with another
         # gaussian which express the diffusion of the parameter.
         XIpr = np.linalg.inv(( invXIpt + Inv_Diffusion ))
 
@@ -389,10 +392,10 @@ def kuramoto_ODE(t, y, arg=None):
     """Function passed for ODE solver.
        In this case it is frequency Kuramoto model.
     """
-    
+
     w, k = arg
     n_osc = len(w)
-    
+
     if len(y)>1:
         coupling = lambda i, j: k[i][j]*np.sin(y[j]-y[i])
         R = lambda i: np.random.normal(0,1)*0.00001
@@ -400,7 +403,7 @@ def kuramoto_ODE(t, y, arg=None):
         #~ out = [w[i] + np.sum([coupling(i,j) for j in range(n_osc) if i!=j]) for i in range(n_osc)]
     else:
         out = w[0]
-    return out 
+    return out
 ######################################
 
 # Exaple usage of program.
@@ -409,12 +412,13 @@ def kuramoto_ODE(t, y, arg=None):
 # 3. Plot results
 
 if __name__ == "__main__":
-    
+
+    logging.basicConfig(level=logging.INFO)
     ####################################################
     # 1. Prepareding oscillators
     t0, t1, dt = 0, 40, 0.001
     N, h = int((t1-t0)/dt), dt
-    
+
     win = 8 # seconds
     h = dt
     ovrPerc = 0.25 # overlap 1 - percentage
@@ -423,7 +427,7 @@ if __name__ == "__main__":
 
     T = np.arange(t0, t1, dt)
 
-    # Y0, W, K are initial phase, intrisic freq and 
+    # Y0, W, K are initial phase, intrisic freq and
     # coupling K matrix respectively
     _Y0 = [0, np.pi,0,1, 5, 2, 3]
     _W = [28,19,11,9, 2, 4]
@@ -451,19 +455,19 @@ if __name__ == "__main__":
     # Set parameters into model
     kODE.set_initial_value(Y0,t0)
     kODE.set_f_params((W, K))
-    
+
     # Run ODE integrator
     odeT, odePhi = [], []
     while kODE.successful() and kODE.t < t1:
         kODE.integrate(kODE.t + dt)
-        
+
         odeT.append( kODE.t )
         odePhi.append( kODE.y )
 
     # Convert to numpy array
     odePhi = np.array(odePhi).T
-    
-    # Plot the phases 
+
+    # Plot the phases
     py.figure()
 
     for comp in range(len(W)):
@@ -474,45 +478,46 @@ if __name__ == "__main__":
 
     ####################################################
     ## 2. Adjust Kuramoto model
-    
+
     # Performing Bayes calc
-    
+
     L = len(W) # num of oscillators
     compN = 1  # Fourier components for ech
-    M = L*(1+0.5*compN*(L-1)*L) # Number of all parameters
+    M = int(L*(1+0.5*compN*(L-1)*L)) # Number of all parameters
 
     # Prior C matrix
-    priorC = np.zeros((L, M/L))
+    priorC = np.zeros((L, int(M/L)))
     #~ priorC[:,0] = np.array(W)
 
     # Calculate parameters
     B = BayesUpdate(M,L)
     B.setPriorC(priorC)
-    
-    T_out, C_out, E_out = B.runBayes(odePhi, win, h, ovrPerc, propConst, infoDisplay)
+
+    config = {"infoDisplay": True}
+    T_out, C_out, E_out = B.runBayes(odePhi, win, h, ovrPerc, propConst, **config)
 
 
     ####################################################
     ## 3. Plot results
-    
+
     # Min plotting resolution
     minRes = 0.01
     resolution = lambda S: np.max(S)-np.min(S)
-    
+
     # Plotting Bayes results
-    
+
     py.figure()
     colNum = oscN
-    nDiffCouplings = oscN*(oscN-1)/2
-    rowNum = nDiffCouplings+1
-    
+    nDiffCouplings = int(oscN*(oscN-1)/2)
+    rowNum = int(nDiffCouplings+1)
+
     # Labels for coupling
     coupLabel = ["%i -- %i"%(i+1,j+1) for i in range(oscN) for j in range(i+1,oscN)]
     coupOsc = [(i,j) for i in range(oscN) for j in range(i+1,oscN)]
-    
+
     # Plot for each oscillator (row)
     for n in range(colNum):
-        
+
         # Plot estimated intrinsic freq
         py.subplot(colNum,rowNum,rowNum*n+1)
         py.plot(T_out, C_out[:,rowNum*n],'r')
@@ -521,31 +526,31 @@ if __name__ == "__main__":
         # Black line - real value
         py.axhline(W[n], color='black')
 
-        # Making sure that plots lookg good        
+        # Making sure that plots lookg good
         if resolution(C_out[:,rowNum*n]) < minRes:
             py.ylim((np.mean(C_out[:,rowNum*n])-minRes/2, np.mean(C_out[:,rowNum*n])+minRes/2))
-        
+
         # Plot coupling factors
         for _k in range(nDiffCouplings):
             py.subplot(colNum,rowNum,rowNum*n+_k+2)
             py.plot(T_out, C_out[:,rowNum*n+_k+1],'b')
-            
+
             # Making sure that plots lookg good
             if resolution(C_out[:,rowNum*n+_k+1]) < minRes:
                 py.ylim((np.mean(C_out[:,rowNum*n+_k+1])-minRes/2, np.mean(C_out[:,rowNum*n+_k+1])+minRes/2))
 
             py.ylabel('$a_%i(t)$' %(_k+1))
             if n==0: py.title(coupLabel[_k])
-            
+
             # What should be the coupling
             kVal = 0
-            if n in coupOsc[_k]:                
+            if n in coupOsc[_k]:
                 sign = (-1)**(n==coupOsc[_k][0])
                 kVal = sign*K[coupOsc[_k][0], coupOsc[_k][1]]
-            
+
             # Black line - real value
             py.axhline( kVal, color='black')
-            
+
     # Display plot
-    #~ py.tight_layout()
+    py.tight_layout()
     py.show()
